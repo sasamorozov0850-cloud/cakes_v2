@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Comfy Cakes 3D</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            margin: 0;
+            padding: 0;
+        }
+        html, body {
+            height: 100%;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #fdf6e3;
+        }
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 50%;
+            z-index: 1;
+        }
+        #ui {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 50%;
+            background: linear-gradient(180deg, #fff9f0 0%, #ffe9e3 100%);
+            border-top-left-radius: 28px;
+            border-top-right-radius: 28px;
+            box-shadow: 0 -8px 30px rgba(255, 107, 157, 0.15);
+            padding: 10px 12px;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+        h1 {
+            font-size: 16px;
+            margin-bottom: 6px;
+            text-align: center;
+            color: #5c4b5c;
+            font-weight: 700;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 5px;
+            margin-bottom: 6px;
+        }
+        .info-card {
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 5px 3px;
+            text-align: center;
+            box-shadow: 0 2px 6px rgba(255, 107, 157, 0.08);
+        }
+        .info-label {
+            font-size: 8px;
+            color: #a89aa8;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            margin-bottom: 1px;
+        }
+        .info-value {
+            font-size: 14px;
+            font-weight: 700;
+            color: #5c4b5c;
+        }
+        .info-value.level { color: #7b6cd9; }
+        .info-value.progress { color: #ff6b9d; }
+        .info-value.score { color: #00b894; }
+        .info-value.cakes { color: #e17055; }
+        .info-value.best { color: #f0a500; }
+
+        .order-card {
+            background: linear-gradient(135deg, #fff5f8 0%, #ffe4ec 100%);
+            border-radius: 14px;
+            padding: 6px 10px;
+            margin-bottom: 6px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(255, 107, 157, 0.1);
+        }
+        .order-card .label {
+            font-size: 9px;
+            color: #a89aa8;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        .order-card .value {
+            font-size: 13px;
+            font-weight: 700;
+            color: #5c4b5c;
+            margin-top: 1px;
+        }
+
+        /* ====== СЕТКА КНОПОК ВЫБОРА (4 В РЯД) ====== */
+        .choices {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            padding: 6px 0;
+            margin-bottom: 6px;
+        }
+        .choice {
+            aspect-ratio: 1 / 1;
+            border-radius: 16px;
+            border: 3px solid transparent;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 700;
+            color: #fff;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+            text-align: center;
+            padding: 4px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+            transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+        .choice:active {
+            transform: scale(0.92);
+            border-color: #ff6b9d;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        #result {
+            text-align: center;
+            font-weight: 700;
+            min-height: 20px;
+            font-size: 13px;
+            margin: 4px 0;
+        }
+        .success { color: #00b894; }
+        .error { color: #d63031; }
+        .levelup { color: #7b6cd9; }
+
+        /* ====== БОЛЬШИЕ КНОПКИ ВНИЗУ ====== */
+        .buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: auto;
+            padding-top: 6px;
+        }
+        .btn {
+            flex: 1;
+            padding: 16px 10px;
+            font-size: 15px;
+            font-weight: 700;
+            border: none;
+            border-radius: 16px;
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            color: #fff;
+            letter-spacing: 0.3px;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+            min-height: 52px;
+        }
+        .btn:active {
+            transform: scale(0.95);
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #ff8fab 0%, #ff6b9d 100%);
+            box-shadow: 0 4px 12px rgba(255, 107, 157, 0.35);
+        }
+        .btn-secondary {
+            background: linear-gradient(135deg, #f0e6ea 0%, #e4d5dc 100%);
+            color: #5c4b5c;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+        }
+    </style>
+</head>
+<body onclick="initAudio()" ontouchstart="initAudio()">
+    <div id="canvas-container"></div>
+
+    <div id="ui">
+        <h1>🎂 Comfy Cakes 3D</h1>
+
+        <div class="info-grid">
+            <div class="info-card">
+                <div class="info-label">Уровень</div>
+                <div class="info-value level" id="level-display">1</div>
+            </div>
+            <div class="info-card">
+                <div class="info-label">Прогресс</div>
+                <div class="info-value progress" id="order-progress">0/5</div>
+            </div>
+            <div class="info-card">
+                <div class="info-label">Очки</div>
+                <div class="info-value score" id="score-display">0</div>
+            </div>
+            <div class="info-card">
+                <div class="info-label">Тортов</div>
+                <div class="info-value cakes" id="cakes-display">0</div>
+            </div>
+            <div class="info-card">
+                <div class="info-label">Рекорд</div>
+                <div class="info-value best" id="best-display">0</div>
+            </div>
+            <div class="info-card">
+                <div class="info-label">Статус</div>
+                <div class="info-value" id="status-display">—</div>
+            </div>
+        </div>
+
+        <div class="order-card">
+            <div class="label">Заказ</div>
+            <div class="value" id="order-display">—</div>
+        </div>
+
+        <div class="choices" id="choices"></div>
+
+        <div id="result"></div>
+
+        <div class="buttons">
+            <button class="btn btn-secondary" onclick="newGame()">🆕 Новая</button>
+            <button class="btn btn-primary" onclick="checkCake()">✅ Проверить</button>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // TELEGRAM MINI APP
+        // ==========================================
+        const tg = window.Telegram && window.Telegram.WebApp;
+        if (tg) {
+            tg.expand();
+            tg.ready();
+            tg.setHeaderColor('#fdf6e3');
+            tg.setBackgroundColor('#fdf6e3');
+        }
+
+        // ==========================================
+        // ЗВУКИ
+        // ==========================================
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                try {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                } catch (e) {}
+            }
+        }
+
+        function playTone(freq, duration, type, volume) {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type || 'sine';
+            osc.frequency.value = freq;
+            gain.gain.setValueAtTime(volume || 0.3, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        }
+
+        function soundClick() { playTone(800, 0.08, 'sine', 0.2); }
+
+        function soundCorrect() {
+            playTone(523, 0.12, 'sine', 0.3);
+            setTimeout(function () { playTone(659, 0.12, 'sine', 0.3); }, 90);
+            setTimeout(function () { playTone(784, 0.25, 'sine', 0.3); }, 180);
+        }
+
+        function soundError() {
+            playTone(180, 0.25, 'sawtooth', 0.25);
+            setTimeout(function () { playTone(150, 0.3, 'sawtooth', 0.25); }, 150);
+        }
+
+        function soundWin() {
+            const notes = [523, 659, 784, 1046, 1318, 1568];
+            for (let i = 0; i < notes.length; i++) {
+                (function (note, delay) {
+                    setTimeout(function () { playTone(note, 0.2, 'sine', 0.3); }, delay);
+                })(notes[i], i * 130);
+            }
+        }
+
+        function soundLevelUp() {
+            const notes = [523, 659, 784, 1046];
+            for (let i = 0; i < notes.length; i++) {
+                (function (note, delay) {
+                    setTimeout(function () { playTone(note, 0.3, 'triangle', 0.35); }, delay);
+                })(notes[i], i * 180);
+            }
+        }
+
+        function soundPick() { playTone(1000, 0.05, 'triangle', 0.15); }
+
+        // ==========================================
+        // THREE.JS
+        // ==========================================
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xfdf6e3);
+        scene.fog = new THREE.Fog(0xfdf6e3, 15, 30);
+
+        const camera = new THREE.PerspectiveCamera(
+            45,
+            container.clientWidth / container.clientHeight,
+            0.1,
+            100
+        );
+        camera.position.set(5, 5, 8);
+        camera.lookAt(0, 1, 0);
+
+        const renderer = new THREE.WebGLRenderer({
+            antialias: true,
+            powerPreference: 'high-performance'
+        });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        scene.add(new THREE.AmbientLight(0xffffff, 0.75));
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
+        dirLight.position.set(5, 10, 7);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 1024;
+        dirLight.shadow.mapSize.height = 1024;
+        scene.add(dirLight);
+
+        const fillLight = new THREE.PointLight(0xffddaa, 0.4, 20);
+        fillLight.position.set(-3, 5, 3);
+        scene.add(fillLight);
+
+        const plateGeo = new THREE.BoxGeometry(3.5, 0.15, 3.5);
+        const plateMat = new THREE.MeshPhongMaterial({
+            color: 0xffffff,
+            shininess: 100,
+            specular: 0xdddddd
+        });
+        const plate = new THREE.Mesh(plateGeo, plateMat);
+        plate.receiveShadow = true;
+        scene.add(plate);
+
+        const ALL_LAYERS = [
+            { name: 'Шоколад', color: 0x8B4513 },
+            { name: 'Ваниль', color: 0xFFFACD },
+            { name: 'Клубника', color: 0xFF6B6B },
+            { name: 'Матча', color: 0x90EE90 },
+            { name: 'Черника', color: 0x4A6FE3 },
+            { name: 'Лимон', color: 0xFFEB3B },
+            { name: 'Апельсин', color: 0xFFA500 },
+            { name: 'Мята', color: 0x98FF98 }
+        ];
+
+        const ALL_TOPPINGS = [
+            { name: 'Вишня', color: 0xDC143C },
+            { name: 'Шоколад', color: 0x3E2723 },
+            { name: 'Карамель', color: 0xDAA520 },
+            { name: 'Крем', color: 0xFFF8DC },
+            { name: 'Земляника', color: 0xFF1493 },
+            { name: 'Орех', color: 0xA0522D }
+        ];
+
+        let currentOrder = [];
+        let myCake = [];
+        let progress = 0;
+        let cakeMeshes = [];
+        let score = 0;
+        let totalCakes = 0;
+        let bestScore = 0;
+        let level = 1;
+        let orderStartTime = 0;
+
+        function getLevelConfig(lvl) {
+            return {
+                layerVariants: Math.min(3 + lvl, ALL_LAYERS.length),
+                toppingVariants: Math.min(3 + lvl, ALL_TOPPINGS.length),
+                layerCount: lvl >= 3 ? 3 : 2,
+                timeBonus5s: 5,
+                timeBonus10s: 10,
+                pointsPerCake: 100 + (lvl - 1) * 20
+            };
+        }
+
+        function createLayerMesh(layer, yPos) {
+            const geo = new THREE.BoxGeometry(3, 0.5, 3);
+            const mat = new THREE.MeshPhongMaterial({
+                color: layer.color,
+                shininess: 40,
+                specular: 0x444444
+            });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.y = yPos;
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            mesh.scale.set(0.01, 0.01, 0.01);
+            mesh.userData.targetScale = 1;
+            return mesh;
+        }
+
+        function createToppingMesh(topping, yPos) {
+            const geo = new THREE.SphereGeometry(0.4, 24, 24);
+            const mat = new THREE.MeshPhongMaterial({
+                color: topping.color,
+                shininess: 80,
+                specular: 0x666666
+            });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.set(0, yPos, 0);
+            mesh.castShadow = true;
+            mesh.scale.set(0.01, 0.01, 0.01);
+            mesh.userData.targetScale = 1;
+            return mesh;
+        }
+
+        function rebuildCake() {
+            const oldMeshes = cakeMeshes.slice();
+            cakeMeshes = [];
+
+            for (let i = 0; i < oldMeshes.length; i++) {
+                oldMeshes[i].userData.removing = true;
+            }
+
+            let y = 0.4;
+            for (let i = 0; i < myCake.length; i++) {
+                const item = myCake[i];
+                let mesh;
+                if (item.type === 'layer') {
+                    mesh = createLayerMesh(item.data, y);
+                    y += 0.5;
+                } else {
+                    mesh = createToppingMesh(item.data, y + 0.25);
+                    y += 0.5;
+                }
+                scene.add(mesh);
+                cakeMeshes.push(mesh);
+            }
+
+            setTimeout(function () {
+                for (let i = 0; i < oldMeshes.length; i++) {
+                    scene.remove(oldMeshes[i]);
+                    if (oldMeshes[i].geometry) oldMeshes[i].geometry.dispose();
+                    if (oldMeshes[i].material) oldMeshes[i].material.dispose();
+                }
+            }, 300);
+        }
+
+        function updateScore() {
+            document.getElementById('score-display').innerText = score;
+            document.getElementById('cakes-display').innerText = totalCakes;
+            document.getElementById('best-display').innerText = bestScore;
+            document.getElementById('level-display').innerText = level;
+        }
+
+        function setStatus(text) {
+            document.getElementById('status-display').innerText = text;
+        }
+
+        function generateOrder() {
+            const cfg = getLevelConfig(level);
+            const availLayers = ALL_LAYERS.slice(0, cfg.layerVariants);
+            const availToppings = ALL_TOPPINGS.slice(0, cfg.toppingVariants);
+
+            currentOrder = [];
+            for (let i = 0; i < cfg.layerCount; i++) {
+                const layer = availLayers[Math.floor(Math.random() * availLayers.length)];
+                currentOrder.push({ type: 'layer', data: layer });
+            }
+            const topping = availToppings[Math.floor(Math.random() * availToppings.length)];
+            currentOrder.push({ type: 'topping', data: topping });
+
+            myCake = [];
+            rebuildCake();
+
+            document.getElementById('order-display').innerText = currentOrder
+                .map(function (item) { return item.data.name; }).join(' → ');
+
+            document.getElementById('result').innerText = '';
+            document.getElementById('result').className = '';
+
+            const choices = document.getElementById('choices');
+            choices.innerHTML = '';
+
+            const allItems = [];
+            for (let i = 0; i < availLayers.length; i++) allItems.push({ type: 'layer', data: availLayers[i] });
+            for (let i = 0; i < availToppings.length; i++) allItems.push({ type: 'topping', data: availToppings[i] });
+
+            for (let i = 0; i < allItems.length; i++) {
+                const item = allItems[i];
+                const btn = document.createElement('div');
+                btn.className = 'choice';
+                btn.style.background = '#' + item.data.color.toString(16).padStart(6, '0');
+                btn.innerText = item.data.name;
+                btn.onclick = (function (it) {
+                    return function () { addToCake(it); };
+                })(item);
+                choices.appendChild(btn);
+            }
+
+            orderStartTime = Date.now();
+            setStatus('Собирай!');
+        }
+
+        function addToCake(item) {
+            const cfg = getLevelConfig(level);
+            if (myCake.length >= cfg.layerCount + 1) return;
+            myCake.push(item);
+            rebuildCake();
+            soundPick();
+            setStatus('Готово!');
+        }
+
+        function checkCake() {
+            const result = document.getElementById('result');
+            const cfg = getLevelConfig(level);
+
+            if (myCake.length !== currentOrder.length) {
+                result.className = 'error';
+                result.innerText = '⚠️ Собери торт полностью!';
+                soundError();
+                return;
+            }
+
+            let correct = true;
+            for (let i = 0; i < currentOrder.length; i++) {
+                if (myCake[i].data.name !== currentOrder[i].data.name) {
+                    correct = false;
+                    break;
+                }
+            }
+
+            if (correct) {
+                const elapsed = (Date.now() - orderStartTime) / 1000;
+                let bonus = 10;
+                if (elapsed < cfg.timeBonus5s) bonus = 50;
+                else if (elapsed < cfg.timeBonus10s) bonus = 25;
+
+                score += cfg.pointsPerCake + bonus;
+                totalCakes++;
+                progress++;
+                updateScore();
+
+                document.getElementById('order-progress').innerText = progress + '/5';
+                result.className = 'success';
+
+                if (progress >= 5) {
+                    level++;
+                    progress = 0;
+                    score += 500;
+                    updateScore();
+                    document.getElementById('order-progress').innerText = '0/5';
+                    result.className = 'levelup';
+                    result.innerText = '🎉 УРОВЕНЬ ' + level + '! +500 бонус!';
+                    setStatus('Уровень ' + level);
+                    soundLevelUp();
+
+                    setTimeout(generateOrder, 2000);
+                    return;
+                }
+
+                result.innerText = '🎉 Правильно! +' + (cfg.pointsPerCake + bonus);
+                setStatus('Правильно!');
+                soundCorrect();
+                setTimeout(generateOrder, 1200);
+            } else {
+                score -= 20;
+                if (score < 0) score = 0;
+                updateScore();
+                result.className = 'error';
+                result.innerText = '❌ Неправильно! −20';
+                setStatus('Ошибка');
+                soundError();
+            }
+        }
+
+        function newGame() {
+            score = 0;
+            totalCakes = 0;
+            progress = 0;
+            level = 1;
+            myCake = [];
+            rebuildCake();
+            updateScore();
+            document.getElementById('order-progress').innerText = '0/5';
+            document.getElementById('result').innerText = '';
+            setStatus('Новая игра');
+            generateOrder();
+            soundClick();
+        }
+
+        let isDragging = false;
+        let previousX = 0;
+        let targetRotation = 0;
+        let currentRotation = 0;
+
+        container.addEventListener('touchstart', function (e) {
+            isDragging = true;
+            previousX = e.touches[0].clientX;
+        }, { passive: true });
+
+        container.addEventListener('touchmove', function (e) {
+            if (!isDragging) return;
+            targetRotation += (e.touches[0].clientX - previousX) * 0.01;
+            previousX = e.touches[0].clientX;
+        }, { passive: true });
+
+        container.addEventListener('touchend', function () {
+            isDragging = false;
+        });
+
+        container.addEventListener('mousedown', function (e) {
+            isDragging = true;
+            previousX = e.clientX;
+        });
+
+        container.addEventListener('mousemove', function (e) {
+            if (!isDragging) return;
+            targetRotation += (e.clientX - previousX) * 0.01;
+            previousX = e.clientX;
+        });
+
+        container.addEventListener('mouseup', function () {
+            isDragging = false;
+        });
+
+        let lastTime = performance.now();
+
+        function animate(time) {
+            requestAnimationFrame(animate);
+
+            const delta = Math.min((time - lastTime) / 16.67, 2);
+            lastTime = time;
+
+            currentRotation += (targetRotation - currentRotation) * 0.08 * delta;
+            scene.rotation.y = currentRotation;
+
+            for (let i = 0; i < cakeMeshes.length; i++) {
+                const mesh = cakeMeshes[i];
+                const target = mesh.userData.targetScale || 1;
+                mesh.scale.x += (target - mesh.scale.x) * 0.15 * delta;
+                mesh.scale.y += (target - mesh.scale.y) * 0.15 * delta;
+                mesh.scale.z += (target - mesh.scale.z) * 0.15 * delta;
+                mesh.rotation.y += 0.005 * delta;
+            }
+
+            for (let i = cakeMeshes.length - 1; i >= 0; i--) {
+                const mesh = cakeMeshes[i];
+                if (mesh.userData.removing) {
+                    mesh.scale.x *= 0.85;
+                    mesh.scale.y *= 0.85;
+                    mesh.scale.z *= 0.85;
+                    if (mesh.scale.x < 0.01) {
+                        scene.remove(mesh);
+                        cakeMeshes.splice(i, 1);
+                    }
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        requestAnimationFrame(animate);
+
+        window.addEventListener('resize', function () {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        });
+
+        generateOrder();
+        updateScore();
+    </script>
+</body>
+</html>
